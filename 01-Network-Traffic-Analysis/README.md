@@ -42,7 +42,7 @@ A PCAP contains recorded network traffic that we can examine later.
 
 I started by opening Kali Linux and checking the files inside `/opt/tcpdump`.
 
-![Lab Environment](screenshots/1.Lab-Environment.png.png)
+![Lab Environment](screenshots/1.Lab-Environment.png)
 
 In this screenshot, I used commands such as `pwd` and `ls -l` to check my current directory and locate the capture file.
 
@@ -57,7 +57,7 @@ sha256sum magnitude_1hr.pcap
 file magnitude_1hr.pcap
 ```
 
-![Evidence Integrity](screenshots/2.Evidence-Integrity.png.png)
+![Evidence Integrity](screenshots/2.Evidence-Integrity.png)
 
 The `file` command confirmed that this was a PCAP capture.
 
@@ -83,7 +83,7 @@ tcpdump -n -tttt -r magnitude_1hr.pcap -c 20
 
 The `-r` option reads the saved file, while `-c 20` limits the output to 20 packets.
 
-![Initial Traffic Review](screenshots/3.Initial-Traffic-Review.png.png)
+![Initial Traffic Review](screenshots/3.Initial-Traffic-Review.png)
 
 The screenshot shows packet output from my initial exploration, along with some directory checks.
 
@@ -101,7 +101,7 @@ tshark -r magnitude_1hr.pcap -q -z conv,ip
 
 This command summarizes the conversations between IP addresses.
 
-![IP Conversations](screenshots/4.IP-Conversations.png.png)
+![IP Conversations](screenshots/4.IP-Conversations.png)
 
 One conversation stood out:
 
@@ -131,7 +131,7 @@ I used the `host` filter to focus on its traffic.
 tcpdump -n -r magnitude_1hr.pcap 'host 192.168.99.52' -c 25
 ```
 
-![Host Traffic](screenshots/5.Suspicious-Host-Traffic.png.png)
+![Host Traffic](screenshots/5.Suspicious-Host-Traffic.png)
 
 The screenshot highlights several types of activity:
 
@@ -160,7 +160,7 @@ tcpdump -n -r magnitude_1hr.pcap \
 'host 192.168.99.52 and port 80' -c 25
 ```
 
-![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png.png)
+![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png)
 
 The numbered sections show:
 
