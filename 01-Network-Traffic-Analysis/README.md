@@ -51,7 +51,7 @@ ls -lh magnitude_1hr.pcap
 
 **Why?** Before investigating anything, I needed to know which file I was working with.
 
-![Lab Environment](screenshots/1.Lab-Environment.png.png)
+![Lab Environment](screenshots/1.Lab-Environment.png)
 
 ### Checking the evidence
 
@@ -64,7 +64,7 @@ file magnitude_1hr.pcap
 
 A hash helps identify a file and can be used to check whether it changes later.
 
-![Evidence Integrity](screenshots/2.Evidence-Integrity.png.png)
+![Evidence Integrity](screenshots/2.Evidence-Integrity.png)
 
 **What I learned:** Checking the evidence before starting is an important habit when working with network captures.
 
@@ -86,7 +86,7 @@ tcpdump -n -tttt -r magnitude_1hr.pcap -c 20
 
 I used `-c 20` to display only 20 packets and make the output easier to read.
 
-![Initial Traffic Review](screenshots/3.Initial-Traffic-Review.png.png)
+![Initial Traffic Review](screenshots/3.Initial-Traffic-Review.png)
 
 I noticed different types of network traffic, including TCP connections and protocols used for local network communication.
 
@@ -106,7 +106,7 @@ tshark -r magnitude_1hr.pcap -q -z conv,ip
 
 This command summarizes conversations between IP addresses instead of showing every packet individually.
 
-![IP Conversations](screenshots/4.IP-Conversations.png.png)
+![IP Conversations](screenshots/4.IP-Conversations.png)
 
 One conversation stood out:
 
@@ -136,7 +136,7 @@ I used a filter to show only traffic related to this address.
 tcpdump -n -r magnitude_1hr.pcap 'host 192.168.99.52' -c 25
 ```
 
-![Host Traffic](screenshots/5.Suspicious-Host-Traffic.png.png)
+![Host Traffic](screenshots/5.Suspicious-Host-Traffic.png)
 
 The output included several types of traffic, such as:
 
@@ -166,7 +166,7 @@ tcpdump -n -r magnitude_1hr.pcap \
 'host 192.168.99.52 and port 80' -c 25
 ```
 
-![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png.png)
+![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png)
 
 ### What did I find?
 
