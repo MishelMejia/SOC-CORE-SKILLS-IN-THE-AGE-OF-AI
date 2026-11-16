@@ -1,68 +1,112 @@
 
-# Network Traffic Investigation with TCPDump
+# Learning Network Traffic Analysis with TCPDump
 
-**SOC Core Skills Lab | Antisyphon Training**
+**My First SOC Investigation | Antisyphon Training — SOC Core Skills**
 
 ## About This Project
 
-This is one of my first hands-on network traffic investigations, completed while studying **SOC Core Skills in the Age of AI** by Antisyphon Training.
+This is my first network traffic analysis project, completed while studying **SOC Core Skills in the Age of AI** by Antisyphon Training.
 
-I already had some networking knowledge, but I had little experience analyzing packet captures. When I first looked at the PCAP, there was so much information that I wasn't sure where to start.
+I already had some networking knowledge, but I had little experience analyzing PCAP files.
 
-My goal was to learn how to approach network traffic step by step, understand why I was using each command, and recognize activity that might need further investigation.
+When I first opened the capture, I saw so many packets, IP addresses, and protocols that I wasn't sure where to start.
 
-This is a guided training lab that I extended with additional analysis using TShark.
+I wanted to learn more than just how to run commands. I wanted to understand **why I was using each command, what I was looking for, and how the results could help me decide what to check next**.
+
+This project follows the original TCPDump lab and includes some additional investigation using TShark.
 
 ## How I Approached the Investigation
 
-Before starting, I wanted to understand the basic process a SOC analyst could follow when reviewing network traffic.
+Before starting, I wanted to understand how a SOC analyst could approach network traffic analysis.
+
+I used this simple process to organize my work:
 
 | Step | Question |
 |---|---|
-| 1. Check the evidence | What file am I working with? |
+| 1. Check the evidence | What file am I analyzing? |
 | 2. Explore the traffic | Which computers are communicating? |
-| 3. Narrow the search | Which connections should I investigate? |
+| 3. Narrow the search | Which traffic should I focus on? |
 | 4. Inspect the data | What information is being transferred? |
-| 5. Review the findings | What can I confirm from the evidence? |
+| 5. Follow the connection | Can I examine the complete conversation? |
+| 6. Review the findings | What can I actually confirm? |
 
-This gave me a simple way to organize the investigation instead of trying to understand every packet at once.
+This is a simplified approach for my training lab, based on general incident investigation practices.
+
+---
 
 ## 1. Preparing the Lab
 
-The course provided a network capture called `magnitude_1hr.pcap` and introduced an internal computer with the IP address `192.168.99.52`.
+The course provided a PCAP file called `magnitude_1hr.pcap`.
 
-A PCAP is a file containing recorded network packets.
+A PCAP is a file containing recorded network traffic. It allows us to go back and examine packets that were captured earlier.
 
-I started by checking that the file was available and identifying its format.
+### Checking the environment
+
+I started by opening Kali Linux and locating the file.
 
 ```bash
 cd /opt/tcpdump
 ls -lh magnitude_1hr.pcap
+```
+
+**Why?** Before investigating anything, I needed to know which file I was working with.
+
+![Lab Environment](screenshots/1.Lab-Environment.png.png)
+
+### Checking the evidence
+
+I also checked the file type and calculated its SHA-256 hash.
+
+```bash
 sha256sum magnitude_1hr.pcap
 file magnitude_1hr.pcap
 ```
 
-The SHA-256 command creates a hash that can help identify the file if I need to check it again.
+A hash helps identify a file and can be used to check whether it changes later.
 
-![Evidence Integrity](screenshots/2.Evidence-Integrity.png)
+![Evidence Integrity](screenshots/2.Evidence-Integrity.png.png)
 
-## 2. Understanding the Network Traffic
+**What I learned:** Checking the evidence before starting is an important habit when working with network captures.
 
-I started by reviewing a small number of packets.
+---
+
+## 2. Exploring the Network Traffic
+
+### Looking at the first packets
+
+My first question was:
+
+**What kind of traffic is inside this PCAP?**
+
+Instead of displaying thousands of packets, I started with a small sample.
 
 ```bash
 tcpdump -n -tttt -r magnitude_1hr.pcap -c 20
 ```
 
-I used `-c 20` because displaying every packet would make the output difficult to read.
+I used `-c 20` to display only 20 packets and make the output easier to read.
 
-After that, I wanted to know which computers exchanged the most data.
+![Initial Traffic Review](screenshots/3.Initial-Traffic-Review.png.png)
+
+I noticed different types of network traffic, including TCP connections and protocols used for local network communication.
+
+One connection involved `192.168.99.52` and `167.71.97.235` on port `9200`.
+
+At this point, I didn't know what the computers were exchanging.
+
+### Finding the main conversations
+
+I wanted a better overview of the capture.
+
+**Which computers were communicating the most?**
 
 ```bash
 tshark -r magnitude_1hr.pcap -q -z conv,ip
 ```
 
-![IP Conversations](screenshots/4.IP-Conversations.png)
+This command summarizes conversations between IP addresses instead of showing every packet individually.
+
+![IP Conversations](screenshots/4.IP-Conversations.png.png)
 
 One conversation stood out:
 
@@ -70,46 +114,98 @@ One conversation stood out:
 |---|---|
 | Internal IP | `192.168.99.52` |
 | External IP | `68.183.138.51` |
-| Total packets | 29,605 |
+| Packets | 29,605 |
 | Total traffic | Approximately 25 MB |
-| Observed duration | Approximately 59 minutes |
+| Duration | Approximately 59 minutes |
 
 The internal computer received much more data than it sent.
 
-This doesn't necessarily mean something malicious happened. However, it made me curious about what the computer was receiving.
+This could be normal, especially during a download. However, it made me curious about what the computer was receiving.
 
-**My next question was: What kind of information was being transferred?**
+**Next question: What kind of information was being transferred?**
 
-## 3. Filtering the Traffic
+---
 
-The PCAP contained different protocols and connections.
+## 3. Focusing on the Computer
 
-I first focused on the internal computer and then narrowed the search to port 80, commonly used for HTTP.
+The course identified `192.168.99.52` as the computer to investigate.
+
+I used a filter to show only traffic related to this address.
 
 ```bash
-tcpdump -n -r magnitude_1hr.pcap 'host 192.168.99.52 and port 80' -c 25
+tcpdump -n -r magnitude_1hr.pcap 'host 192.168.99.52' -c 25
 ```
 
-![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png)
+![Host Traffic](screenshots/5.Suspicious-Host-Traffic.png.png)
 
-I identified an HTTP connection between:
+The output included several types of traffic, such as:
+
+- TCP connections
+- ARP messages
+- DHCP traffic
+- Multicast communication
+
+ARP helps devices find hardware addresses, while DHCP helps devices receive network settings.
+
+These are common networking activities.
+
+**Why did I continue?**
+
+There was still too much information, so I decided to focus on HTTP traffic, as introduced in the course.
+
+---
+
+## 4. Investigating HTTP Traffic
+
+HTTP is commonly associated with port 80.
+
+I filtered the traffic by host and port.
+
+```bash
+tcpdump -n -r magnitude_1hr.pcap \
+'host 192.168.99.52 and port 80' -c 25
+```
+
+![HTTP Traffic Filtering](screenshots/6.HTTP-Traffic-Filtering.png.png)
+
+### What did I find?
+
+I identified a connection between:
 
 - **Client:** `192.168.99.52:52709`
 - **Server:** `68.183.138.51:80`
 
-The computer sent a GET request to:
+The communication started with a TCP three-way handshake:
 
-`/themes/index.php?id=...`
+1. SYN — The client requests a connection.
+2. SYN-ACK — The server responds.
+3. ACK — The client confirms.
 
-The server responded with `HTTP/1.1 200 OK`.
+After that, the computer sent an HTTP GET request:
 
-This told me that the server responded to the request, but I still didn't know what the response contained.
+```text
+GET /themes/index.php?id=...
+```
 
-## 4. Looking Inside the HTTP Response
+The server responded with:
 
-The course showed a specific packet worth examining at `15:14:32.638976`.
+```text
+HTTP/1.1 200 OK
+```
 
-I used its timestamp to find the content more easily.
+This means the server successfully responded to the request.
+
+However, I still didn't know what the response contained.
+
+**Next question: Can I examine the information sent by the server?**
+
+---
+
+## 5. Looking Inside the HTTP Response
+
+The course showed a specific packet at `15:14:32.638976`.
+
+I used that timestamp to locate it without manually scrolling through the entire capture.
 
 ```bash
 tcpdump -n -A -r magnitude_1hr.pcap \
@@ -117,83 +213,62 @@ tcpdump -n -A -r magnitude_1hr.pcap \
 | grep -A 2 -B 1 '15:14:32.638976'
 ```
 
+The `-A` option displays readable text from the packet.
+
 ![HTTP Payload Inspection](screenshots/7.HTTP-Payload-Inspection.png)
 
-Inside the response, I found PowerShell-related instructions:
+### What did I find?
+
+I found PowerShell-related instructions:
 
 ```powershell
 New-Object IO.MemoryStream
 [Convert]::FromBase64String(...)
 ```
 
-I learned that `MemoryStream` is used to work with data in memory, while `FromBase64String` converts Base64 text into bytes.
+I learned that:
 
-Base64 is a way of representing data as text. It is not encryption.
+- `New-Object` creates an object in PowerShell.
+- `MemoryStream` allows a program to work with data in memory.
+- `FromBase64String` converts Base64 text into bytes.
 
-These instructions caught my attention because I couldn't immediately tell what the encoded data contained.
+Base64 is a way to represent information as text. It is not encryption.
 
-However, finding PowerShell-related content in network traffic does not prove that it was executed.
+These instructions caught my attention because I couldn't immediately understand what the encoded content contained.
 
-## 5. Following the TCP Conversation
+However, finding this text in network traffic does not prove that it was executed.
 
-The server response was divided across multiple TCP packets.
+### Viewing the packet in hexadecimal
 
-Instead of looking at each packet separately, I wanted to examine the complete connection.
-
-Using TShark, I identified **TCP Stream 1**, which contained the HTTP request from the internal computer.
-
-```bash
-tshark -r magnitude_1hr.pcap -q -z follow,tcp,ascii,1 | less
-```
-
-![TCP Stream Reconstruction](screenshots/10.2.HTTP-Stream-Reconstruction.png)
-
-The reconstructed conversation showed the PowerShell-related instructions followed by a long encoded string.
-
-The string started with `H4sI...`, which is commonly associated with Base64-encoded GZIP data.
-
-I did not fully decode the content, so I could not confirm what was inside.
-
-I also checked the HTTP response details.
-
-![HTTP Response Analysis](screenshots/10.4.HTTP-Response-Analysis.png)
-
-| Field | Value |
-|---|---|
-| HTTP Status | 200 OK |
-| Content-Length | 226,788 bytes |
-| Content-Type | text/plain |
-
-The server described the response as plain text, but that does not necessarily mean the content was safe.
-
-## 6. Checking for Repeated Activity
-
-After finding the PowerShell-related instructions, I wanted to know whether similar content appeared elsewhere in the capture.
-
-I exported the HTTP objects and searched for the same instruction.
+I also wanted to understand how the information appeared in the actual packet bytes.
 
 ```bash
-mkdir -p /tmp/soc-analysis
-tshark -r magnitude_1hr.pcap --export-objects http,/tmp/soc-analysis
-
-grep -lF 'FromBase64String' /tmp/soc-analysis/* 2>/dev/null | wc -l
-find /tmp/soc-analysis -maxdepth 1 -type f | wc -l
+tcpdump -n -X -r magnitude_1hr.pcap \
+'host 192.168.99.52 and port 80'
 ```
 
-![Encoded Payload Verification](screenshots/10.5.Encoded-Payload-Verification.png)
+![Hexadecimal Packet Analysis](screenshots/8.Hexadecimal-Packet-Analysis.png)
 
-I found:
+The hexadecimal view displays the bytes of the packet, while the ASCII view helps identify readable text.
 
-- **105 HTTP objects** exported from the capture.
-- **103 files** containing `FromBase64String`.
+**What I learned:** These are two ways of looking at the same information.
 
-This suggests that similar encoded content appeared repeatedly in the captured HTTP traffic.
+---
 
-It does not mean that 103 attacks or infections occurred.
+## 6. Checking the Internal Network
 
-## 7. Checking the Internal Network
+Before continuing with the HTTP response, I also wanted to understand which other devices appeared in the capture.
 
-I also wanted to see which other internal IP addresses appeared in the PCAP.
+I started by filtering the local network range.
+
+```bash
+tcpdump -n -r magnitude_1hr.pcap \
+'net 192.168.99.0/24' -c 30
+```
+
+![Network Scope Analysis](screenshots/9.Network-Scope-Analysis.png)
+
+Then I used TShark to identify the unique internal IP addresses.
 
 ```bash
 tshark -r magnitude_1hr.pcap \
@@ -205,36 +280,231 @@ tshark -r magnitude_1hr.pcap \
 
 ![Internal IP Discovery](screenshots/9.2.Internal-IP-Discovery.png)
 
-I found several internal addresses in the `192.168.99.0/24` network.
+I found several addresses in the local network, including:
 
-This helped me understand that the capture contained activity from more than one device.
+- `192.168.99.1`
+- `192.168.99.10`
+- `192.168.99.51`
+- `192.168.99.52`
+- `192.168.99.53`
+- `192.168.99.54`
+- `192.168.99.55`
 
-However, I did not find enough evidence to conclude that other computers were compromised.
+I also found `192.168.99.255`, which is the subnet broadcast address, not an individual computer.
 
-## 8. What Did I Find?
+This showed that the PCAP contained activity involving several internal addresses.
 
-At the end of the investigation, I was able to confirm that:
+However, it did not prove that other devices were compromised.
+
+---
+
+## 7. Following the TCP Conversation
+
+The HTTP response contained more information than could fit in a single packet.
+
+I wanted to see the complete conversation instead of examining separate packets.
+
+### Finding the TCP stream
+
+TShark can identify the packets belonging to a specific TCP connection.
+
+I searched for HTTP requests from the internal computer to the external server.
+
+```bash
+tshark -r magnitude_1hr.pcap \
+-Y 'ip.src == 192.168.99.52 && ip.dst == 68.183.138.51 && tcp.dstport == 80 && http.request' \
+-T fields -e frame.number -e tcp.stream -e http.request.uri \
+| cut -c 1-120 | head -20
+```
+
+![TCP Stream Identification](screenshots/10.TCP-Stream-Identification.png)
+
+I found several TCP streams requesting similar HTTP paths.
+
+The first relevant request appeared in **Frame 91, TCP Stream 1**.
+
+### Verifying the connection
+
+I checked that the stream belonged to the connection I was investigating.
+
+```bash
+tshark -r magnitude_1hr.pcap \
+-Y 'frame.number == 91' \
+-T fields -e frame.time -e ip.src -e tcp.srcport \
+-e ip.dst -e tcp.dstport -e tcp.stream
+```
+
+![TCP Stream Verification](screenshots/10.1.TCP-Stream-Verification.png.png)
+
+The output confirmed the connection:
+
+`192.168.99.52:52709 → 68.183.138.51:80`
+
+**Why was this useful?**
+
+Now I knew which TCP stream contained the HTTP request and could focus on that conversation.
+
+---
+
+## 8. Reconstructing the HTTP Conversation
+
+I used TShark to follow TCP Stream 1.
+
+```bash
+tshark -r magnitude_1hr.pcap \
+-q -z follow,tcp,ascii,1 | less
+```
+
+This command reconstructs the data exchanged during the connection and displays it in ASCII format.
+
+![HTTP Stream Reconstruction](screenshots/10.2.HTTP-Stream-Reconstruction.png)
+
+### What did I find?
+
+The reconstructed data included the same PowerShell-related instructions and a long encoded string.
+
+The string started with:
+
+```text
+H4sI...
+```
+
+This prefix is commonly associated with Base64-encoded GZIP data.
+
+GZIP is used to compress information.
+
+I did not fully decode the content, so I couldn't confirm exactly what it contained.
+
+### Saving the reconstructed stream
+
+I also saved a hexadecimal representation of the TCP conversation.
+
+```bash
+tshark -r magnitude_1hr.pcap \
+-q -z follow,tcp,raw,1 \
+> /tmp/tcp-stream-1.txt
+```
+
+![TCP Stream Extraction](screenshots/10.3.TCP-Stream-Extraction.png)
+
+The resulting text file was approximately 445 KB.
+
+This is the size of the exported text representation, not necessarily the original response size.
+
+---
+
+## 9. Checking the HTTP Response Details
+
+I wanted to know how much information the server reported sending and what type of content it was.
+
+```bash
+tshark -r magnitude_1hr.pcap \
+-Y 'tcp.stream == 1 && http.response' \
+-T fields \
+-e frame.number \
+-e http.response.code \
+-e http.content_length \
+-e http.content_encoding \
+-e http.content_type
+```
+
+![HTTP Response Analysis](screenshots/10.4.HTTP-Response-Analysis.png)
+
+### Results
+
+| Field | Value |
+|---|---|
+| Frame | 375 |
+| HTTP Status | 200 |
+| Content-Length | 226,788 bytes |
+| Content-Type | text/plain |
+| Content-Encoding | Not reported |
+
+The server reported sending approximately 227 KB of text data.
+
+The `text/plain` content type does not necessarily mean the information was safe.
+
+---
+
+## 10. Looking for Repeated Activity
+
+After finding PowerShell-related content, I wanted to know whether similar instructions appeared in other HTTP responses.
+
+I exported the HTTP objects from the PCAP.
+
+```bash
+mkdir -p /tmp/soc-analysis
+
+tshark -r magnitude_1hr.pcap \
+--export-objects http,/tmp/soc-analysis
+```
+
+Then I searched the exported files for `FromBase64String`.
+
+```bash
+grep -lF 'FromBase64String' /tmp/soc-analysis/* 2>/dev/null | wc -l
+find /tmp/soc-analysis -maxdepth 1 -type f | wc -l
+```
+
+![Encoded Payload Verification](screenshots/10.5.Encoded-Payload-Verification.png)
+
+### What did I find?
+
+| Result | Count |
+|---|---|
+| Total exported HTTP files | 105 |
+| Files containing FromBase64String | 103 |
+
+This suggests that similar PowerShell-related content appeared repeatedly in the recorded HTTP traffic.
+
+However, it does not mean that 103 attacks occurred or that 103 computers were infected.
+
+It only means that 103 exported files contained the text I searched for.
+
+---
+
+## 11. What Did I Find?
+
+By the end of the investigation, I was able to confirm that:
 
 - `192.168.99.52` communicated with `68.183.138.51` over HTTP.
 - The server returned a response containing PowerShell-related instructions.
 - The response included Base64-encoded content.
 - Similar decoding instructions appeared in many exported HTTP objects.
+- Other internal IP addresses were visible in the capture.
 
-**My assessment:** The HTTP content was unusual and worth investigating, but I could not confirm malware execution or a successful attack using network traffic alone.
+### Was this an attack?
 
-In a real investigation, I would want to examine Windows event logs, PowerShell activity, and endpoint security alerts before reaching a conclusion.
+I found activity that deserved further investigation, but I couldn't confirm that the computer executed the PowerShell code or became infected.
 
-## 9. What I Learned
+A network capture shows information traveling between devices, but it does not always show what happened inside the computer.
+
+In a real investigation, I would want to check Windows event logs, PowerShell activity, and endpoint security alerts before making a final conclusion.
+
+**Final Assessment: Suspicious HTTP content observed. Successful execution or compromise not confirmed.**
+
+---
+
+## 12. What I Learned
 
 This lab helped me understand that network traffic analysis is not about reading every packet.
 
-At first, I found the amount of information overwhelming. What helped was learning to start with a general view and then narrow the search based on what I found.
+At first, I found the amount of information overwhelming. What helped me was learning to start with a general view and then narrow the search.
 
-I also learned that identifying something suspicious is different from proving that an attack happened.
+I learned to ask questions such as:
 
-The most useful lesson for me was understanding **why I was running each command**, rather than just following the instructions.
+- Which computer am I investigating?
+- Who is it communicating with?
+- What kind of traffic is being exchanged?
+- What did the computer request?
+- What did the server send back?
+- What can I actually confirm?
 
-I still have a lot to learn, but this project gave me a better idea of how a SOC analyst can approach a network investigation.
+I also learned that finding something unusual doesn't automatically mean an attack happened.
+
+The most important lesson for me was understanding **why I was running each command**, rather than just following the instructions.
+
+I still have a lot to learn, but this project helped me better understand how a SOC analyst can approach a network investigation.
 
 ---
 
@@ -243,16 +513,12 @@ I still have a lot to learn, but this project gave me a better idea of how a SOC
 - Kali Linux
 - TCPDump
 - TShark
-- Linux command line
-
-## Additional Evidence
-
-More screenshots from this investigation are available in the [screenshots folder](screenshots/), including initial packet inspection, hexadecimal analysis, TCP stream verification, and network scope analysis.
+- Linux Command Line
 
 ## Acknowledgment
 
 This project was completed while studying **SOC Core Skills in the Age of AI** by Antisyphon Training.
 
-The original TCPDump exercise and PCAP were provided through the training material. The additional analysis, screenshots, and explanations document my learning process.
+The original TCPDump exercise and PCAP were provided through the course. The additional analysis, screenshots, and explanations document my learning process.
 
-The original PCAP and extracted payload files are not included in this repository.
+The original PCAP and extracted payload files are not included in this public repository.
